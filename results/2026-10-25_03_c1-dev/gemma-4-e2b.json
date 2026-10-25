@@ -4676,7 +4676,7 @@
     "astroid/modutils.py::modpath_from_file_with_callback"
    ],
    "metrics": {
-    "func_malformed": 0.0,
+    "func_malformed": 1.0,
     "file_acc_all@1": 0.0,
     "file_hit@1": 0.0,
     "file_acc_all@3": 0.0,

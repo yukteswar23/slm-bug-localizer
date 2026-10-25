@@ -1,0 +1,26 @@
+{
+ "experiment": "2026-10-25_04_fmt-dev",
+ "split": "dev",
+ "max_steps": 20,
+ "constrained": true,
+ "tools": "file tools (C1)",
+ "options": {
+  "func_format": true,
+  "repeat_guard": false,
+  "budget_hints": false,
+  "ranked": false
+ },
+ "trajectories": "C:\\gemma_work\\runs\\2026-10-25_04_fmt-dev",
+ "models": {
+  "gemma-4-e2b": {
+   "started": "2026-10-25 20:26",
+   "n_tasks": 23,
+   "ids": null
+  },
+  "qwen3.5-4b": {
+   "started": "2026-10-25 20:46",
+   "n_tasks": 23,
+   "ids": null
+  }
+ }
+}

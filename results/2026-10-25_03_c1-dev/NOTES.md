@@ -11,7 +11,7 @@
 | Median steps / time per task | 20 / 55 s | 11 / 36 s |
 | Forced submit (hit the step limit) | 70% | 43% |
 | Repeated identical calls (share of steps) | 39% | 18% |
-| Malformed function names (tasks) | 9% | 43% |
+| Malformed function names (tasks) | 13% | 43% |
 | Invalid replies | 0% | 0% |
 
 **Findings:**

@@ -38,7 +38,7 @@
    "Tool error (tasks)": 0.17391304347826086,
    "Forced submit (tasks)": 0.6956521739130435,
    "Empty answer (tasks)": 0.0,
-   "Malformed function name (tasks)": 0.08695652173913043,
+   "Malformed function name (tasks)": 0.13043478260869565,
    "Repeated call (steps)": 0.39141414141414144
   },
   "steps": [

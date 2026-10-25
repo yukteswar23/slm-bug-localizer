@@ -25,7 +25,7 @@ NON_PY_EXT = {"rst", "txt", "md", "cfg", "toml", "ini", "json", "yml", "yaml", "
 
 
 def norm_path(p: str) -> str:
-    p = p.strip().replace("\\", "/")
+    p = p.strip().replace("\\", "/").split("::", 1)[0]  # "file.py::func" given as a file
     while p.startswith(("./", "/")):
         p = p[1:] if p.startswith("/") else p[2:]
     if "/" not in p and MODULE_PATH.fullmatch(p.removesuffix(".py")) \
@@ -39,9 +39,20 @@ QUALNAME = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$")
 
 
 def is_canonical(f: str) -> bool:
-    """Exactly the requested format: path/to/file.py::Qual.name"""
+    """Exactly the requested format: path/to/file.py::Qual.name, with no module
+    prefix repeated inside the name."""
     f = f.strip()
-    return bool(CANONICAL.match(f)) and is_qualname(f.split("::", 1)[1])
+    if not (CANONICAL.match(f) and is_qualname(f.split("::", 1)[1])):
+        return False
+    path, name = f.split("::", 1)
+    return not any(name.startswith(m + ".") for m in module_of(path))
+
+
+def as_string(entry) -> str:
+    """Function entries are strings, or {"file", "name"} objects (struct_answer)."""
+    if isinstance(entry, dict):
+        return f"{entry.get('file', '')}::{entry.get('name', '')}"
+    return entry
 
 
 def is_qualname(name: str) -> bool:
@@ -49,9 +60,10 @@ def is_qualname(name: str) -> bool:
 
 
 def module_of(path: str) -> list:
-    """Import names a file can appear under: pkg/mod.py -> pkg.mod (and without src/)."""
-    mod = path.removesuffix(".py").removesuffix("/__init__").replace("/", ".")
-    return [mod, mod.removeprefix("src.")] if mod.startswith("src.") else [mod]
+    """Import names a file can appear under, longest first: pkg/sub/mod.py ->
+    pkg.sub.mod, sub.mod, mod (any trailing part of the module path)."""
+    parts = path.removesuffix(".py").removesuffix("/__init__").split("/")
+    return [".".join(parts[i:]) for i in range(len(parts))]
 
 
 def norm_func(f: str, files: list):
@@ -60,6 +72,8 @@ def norm_func(f: str, files: list):
     if "::" in f:
         path, _, name = f.partition("::")
         path, name = norm_path(path), name.strip().removesuffix("()")
+        for mod in module_of(path):  # "pkg/mod.py::pkg.mod.func" -> "pkg/mod.py::func"
+            name = name.removeprefix(mod + ".")
         return f"{path}::{name}" if path.endswith(".py") and is_qualname(name) else None
     if not is_qualname(f):
         return None
@@ -91,7 +105,7 @@ def dedup(items):
 
 def score(answer: dict, gold_files: list, gold_functions: list) -> dict:
     files = dedup(norm_path(f) for f in answer.get("files", []))
-    raw = [f for f in answer.get("functions", []) if f.strip()]
+    raw = [s for s in map(as_string, answer.get("functions", [])) if s.strip(" :")]
     funcs = dedup(n for n in (norm_func(f, files) for f in raw) if n)
     res = {"func_malformed": float(any(not is_canonical(f) for f in raw))}
     for k in (1, 3, 5):

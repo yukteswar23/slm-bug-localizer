@@ -14,7 +14,24 @@ TOOL_DOCS = """\
 list_dir(path): list files and folders in a directory of the repo ("." is the root).
 search_code(pattern, path): find lines containing the exact text `pattern` (case-sensitive). `path` limits the search to a folder or file; use "." for the whole repo.
 read_file(path, start_line, end_line): show numbered lines of a file, at most 120 lines per call.
-submit(files, functions): final answer. `files`: up to 5 file paths, most likely first. `functions`: up to 10 entries "path/to/file.py::function" or "path/to/file.py::Class.method", most likely first."""
+"""
+SUBMIT_DOC = """submit(files, functions): final answer. `files`: up to 5 file paths, most likely first. `functions`: up to 10 entries "path/to/file.py::function" or "path/to/file.py::Class.method", most likely first."""
+SUBMIT_DOC_RANKED = """submit(files, functions): final answer as ranked candidate lists, most likely first. `files`: 3 to 5 file paths. `functions`: 3 to 10 entries "path/to/file.py::function" or "path/to/file.py::Class.method". Put your best guess first, then the next most likely candidates."""
+SUBMIT_DOC_STRUCT = """submit(files, functions): final answer. `files`: up to 5 file paths, most likely first. `functions`: up to 10 objects {"file": "path/to/file.py", "name": "function" or "Class.method"}, most likely first."""
+SUBMIT_DOC_STRUCT_RANKED = """submit(files, functions): final answer as ranked candidate lists, most likely first. `files`: 3 to 5 file paths. `functions`: 3 to 10 objects {"file": "path/to/file.py", "name": "function" or "Class.method"}. Put your best guess first, then the next most likely candidates."""
+
+# "path/to/file.py::Name" or "path/to/file.py::Class.method". Bounded repetition
+# matters: with unbounded parts, a model that does not want to write ".py::" can
+# keep extending the string until it hits the token limit.
+FUNC_PATTERN = r"^[A-Za-z0-9_/.-]{1,100}[.]py::[A-Za-z_][A-Za-z0-9_.]{0,60}$"
+FILE_PATTERN = r"^[A-Za-z0-9_/.-]{1,120}$"  # a repo path: no spaces, no "::name"
+NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_.]{0,80}$"  # dots allowed, so "pkg.mod.func" can end
+
+
+def tool_docs(ranked: bool = False, struct_answer: bool = False) -> str:
+    if struct_answer:
+        return TOOL_DOCS + (SUBMIT_DOC_STRUCT_RANKED if ranked else SUBMIT_DOC_STRUCT)
+    return TOOL_DOCS + (SUBMIT_DOC_RANKED if ranked else SUBMIT_DOC)
 
 TOOL_ARGS = {
     "list_dir": {"path": {"type": "string"}},
@@ -27,11 +44,37 @@ TOOL_ARGS = {
 }
 
 
-def action_schema(tools: list) -> dict:
+def submit_args(func_format: bool = False, ranked: bool = False, struct_answer: bool = False) -> dict:
+    """Arguments of submit.
+    func_format:   regex forces "path.py::Name" strings (experiment 04; hurts Qwen,
+                   which starts dotted names and is then forced into garbage).
+    struct_answer: each function is an object {"file", "name"}; no regex has to
+                   hold a path and a name in one string.
+    ranked:        at least 3 candidates per list."""
+    constrained = func_format or struct_answer
+    file_item = {"type": "string", "pattern": FILE_PATTERN} if constrained else {"type": "string"}
+    files = {"type": "array", "items": file_item, "maxItems": 5}
+    if struct_answer:
+        item = {"type": "object", "properties": {"file": {"type": "string", "pattern": FILE_PATTERN},
+                                                 "name": {"type": "string", "pattern": NAME_PATTERN}},
+                "required": ["file", "name"], "additionalProperties": False}
+    elif func_format:
+        item = {"type": "string", "pattern": FUNC_PATTERN}
+    else:
+        item = {"type": "string"}
+    funcs = {"type": "array", "items": item, "maxItems": 10}
+    if ranked:
+        files["minItems"] = funcs["minItems"] = 3
+    return {"files": files, "functions": funcs}
+
+
+def action_schema(tools: list, func_format: bool = False, ranked: bool = False,
+                  struct_answer: bool = False) -> dict:
     """JSON schema for one agent step: a short thought plus exactly one tool call."""
+    args = {**TOOL_ARGS, "submit": submit_args(func_format, ranked, struct_answer)}
     options = [{"type": "object",
-                "properties": {"tool": {"const": name}, **TOOL_ARGS[name]},
-                "required": ["tool", *TOOL_ARGS[name]], "additionalProperties": False}
+                "properties": {"tool": {"const": name}, **args[name]},
+                "required": ["tool", *args[name]], "additionalProperties": False}
                for name in tools]
     return {"type": "object",
             "properties": {"thought": {"type": "string", "maxLength": 400},

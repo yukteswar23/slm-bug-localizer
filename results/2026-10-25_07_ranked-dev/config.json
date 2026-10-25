@@ -1,0 +1,27 @@
+{
+ "experiment": "2026-10-25_07_ranked-dev",
+ "split": "dev",
+ "max_steps": 20,
+ "constrained": true,
+ "tools": "file tools (C1)",
+ "options": {
+  "func_format": false,
+  "struct_answer": true,
+  "repeat_guard": true,
+  "budget_hints": true,
+  "ranked": true
+ },
+ "trajectories": "C:\\gemma_work\\runs\\2026-10-25_07_ranked-dev",
+ "models": {
+  "gemma-4-e2b": {
+   "started": "2026-10-25 22:24",
+   "n_tasks": 23,
+   "ids": null
+  },
+  "qwen3.5-4b": {
+   "started": "2026-10-25 22:40",
+   "n_tasks": 23,
+   "ids": null
+  }
+ }
+}

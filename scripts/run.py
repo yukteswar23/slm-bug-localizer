@@ -17,12 +17,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from agent.llm import LlamaServer  # noqa: E402
-from agent.loop import run_episode  # noqa: E402
+from agent.loop import OPTIONS, run_episode  # noqa: E402
 from agent.score import score  # noqa: E402
 from agent.checkpoint import checkpoint_dir, traj_dir  # noqa: E402
 from agent.tasks import add_gold, checkout, load_tasks  # noqa: E402
 
-STEP_KEYS = ("step", "tool", "action", "valid", "error", "prompt_tokens", "completion_tokens",
+STEP_KEYS = ("step", "tool", "action", "valid", "error", "repeat_blocked", "prompt_tokens", "completion_tokens",
              "cached_tokens", "prompt_ms", "gen_ms", "observation_chars")
 
 
@@ -34,7 +34,10 @@ def main():
     ap.add_argument("--ids", nargs="*", help="instance ids (default: whole split)")
     ap.add_argument("--max-steps", type=int, default=20)
     ap.add_argument("--unconstrained", action="store_true")
+    for opt in OPTIONS:
+        ap.add_argument("--" + opt.replace("_", "-"), action="store_true")
     args = ap.parse_args()
+    options = {k: getattr(args, k) for k in OPTIONS}
 
     tasks = load_tasks(args.split)
     if args.ids:
@@ -45,13 +48,14 @@ def main():
     config_path = ckpt / "config.json"
     config = json.loads(config_path.read_text()) if config_path.exists() else {
         "experiment": ckpt.name, "split": args.split, "max_steps": args.max_steps,
-        "constrained": not args.unconstrained, "tools": "file tools (C1)",
+        "constrained": not args.unconstrained, "tools": "file tools (C1)", "options": options,
         "trajectories": str(trajs.parent), "models": {}}
     config["models"][args.model] = {"started": time.strftime("%Y-%m-%d %H:%M"),
                                     "n_tasks": len(tasks), "ids": args.ids}
     config_path.write_text(json.dumps(config, indent=1))
     summary = {"run": args.run, "model": args.model, "split": args.split,
                "max_steps": args.max_steps, "constrained": not args.unconstrained,
+               "options": options,
                "started": time.strftime("%Y-%m-%d %H:%M"), "tasks": []}
 
     with LlamaServer(args.model) as llm:
@@ -59,7 +63,7 @@ def main():
             repo_dir = checkout(task)
             add_gold(task)
             ep = run_episode(llm, task, repo_dir, args.max_steps,
-                             constrained=not args.unconstrained)
+                             constrained=not args.unconstrained, options=options)
             ep.update(gold_files=task.gold_files, gold_functions=task.gold_functions,
                       metrics=score(ep["answer"], task.gold_files, task.gold_functions))
             (trajs / f"{task.instance_id}.json").write_text(json.dumps(ep, indent=1))

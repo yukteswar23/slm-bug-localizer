@@ -1,0 +1,27 @@
+{
+ "experiment": "2026-10-25_05_struct-dev",
+ "split": "dev",
+ "max_steps": 20,
+ "constrained": true,
+ "tools": "file tools (C1)",
+ "options": {
+  "func_format": false,
+  "struct_answer": true,
+  "repeat_guard": false,
+  "budget_hints": false,
+  "ranked": false
+ },
+ "trajectories": "C:\\gemma_work\\runs\\2026-10-25_05_struct-dev",
+ "models": {
+  "gemma-4-e2b": {
+   "started": "2026-10-25 21:10",
+   "n_tasks": 23,
+   "ids": null
+  },
+  "qwen3.5-4b": {
+   "started": "2026-10-25 21:30",
+   "n_tasks": 23,
+   "ids": null
+  }
+ }
+}
