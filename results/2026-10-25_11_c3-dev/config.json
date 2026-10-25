@@ -1,0 +1,24 @@
+{
+ "experiment": "2026-10-25_11_c3-dev",
+ "split": "dev",
+ "max_steps": 20,
+ "constrained": true,
+ "tools": "file + graph tools + Evidence Buffer",
+ "options": {
+  "func_format": false,
+  "struct_answer": true,
+  "repeat_guard": true,
+  "budget_hints": true,
+  "ranked": true,
+  "graph_tools": true,
+  "evidence_buffer": true
+ },
+ "trajectories": "C:\\gemma_work\\runs\\2026-10-25_11_c3-dev",
+ "models": {
+  "gemma-4-e2b": {
+   "started": "2026-10-25 23:44",
+   "n_tasks": 23,
+   "ids": null
+  }
+ }
+}

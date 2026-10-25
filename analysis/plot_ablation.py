@@ -31,7 +31,7 @@ from agent.checkpoint import checkpoint_dir  # noqa: E402
 # Function@10 is left out: the models never submit more than ~3 functions, so it equals Function@5
 ACC = [("file_acc_all@1", "File@1 (%)"), ("file_acc_all@5", "File@5 (%)"),
        ("func_acc_all@5", "Function@5 (%)")]
-MARKERS = {"gemma-4-e2b": "o", "qwen3.5-4b": "s", "gemma-4-31b": "^"}
+MARKERS = {"gemma-4-e2b": "o", "qwen3.5-4b": "s", "gemma-4-31b": "^", "bm25": "D"}
 
 
 def mcnemar(a: dict, b: dict):
@@ -74,7 +74,7 @@ def main():
         fms = [[failure_modes(t, r[m]["max_steps"]) for t in r[m]["tasks"]] for r in runs]
         ms["steps"] = [[t["n_steps"] for t in r[m]["tasks"]] for r in runs]
         ms["forced_submit"] = [float(np.mean([f["forced_submit"] for f in fm])) for fm in fms]
-        ms["repeat_steps"] = [sum(f["repeat_steps"] for f in fm) / sum(f["n_steps"] for f in fm)
+        ms["repeat_steps"] = [sum(f["repeat_steps"] for f in fm) / max(1, sum(f["n_steps"] for f in fm))
                               for fm in fms]
         ms["malformed"] = [float(np.mean([f["malformed"] for f in fm])) for fm in fms]
         stats["models"][m] = ms
@@ -94,7 +94,7 @@ def main():
                 "metrics": am, "mcnemar_vs_previous": tests,
                 "steps": [t["n_steps"] for t in tasks],
                 "forced_submit": float(np.mean([f["forced_submit"] for f in fm])),
-                "repeat_steps": sum(f["repeat_steps"] for f in fm) / sum(f["n_steps"] for f in fm)}
+                "repeat_steps": sum(f["repeat_steps"] for f in fm) / max(1, sum(f["n_steps"] for f in fm))}
     (out / "stats.json").write_text(json.dumps(stats, indent=1))
     ALT_DX = 0.22
 

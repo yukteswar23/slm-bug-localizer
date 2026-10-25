@@ -1,0 +1,28 @@
+{
+ "experiment": "2026-10-25_10_c2-dev",
+ "split": "dev",
+ "max_steps": 20,
+ "constrained": true,
+ "tools": "file + graph tools (C2)",
+ "options": {
+  "func_format": false,
+  "struct_answer": true,
+  "repeat_guard": true,
+  "budget_hints": true,
+  "ranked": true,
+  "graph_tools": true
+ },
+ "trajectories": "C:\\gemma_work\\runs\\2026-10-25_10_c2-dev",
+ "models": {
+  "gemma-4-e2b": {
+   "started": "2026-10-25 23:12",
+   "n_tasks": 23,
+   "ids": null
+  },
+  "qwen3.5-4b": {
+   "started": "2026-10-25 23:28",
+   "n_tasks": 23,
+   "ids": null
+  }
+ }
+}

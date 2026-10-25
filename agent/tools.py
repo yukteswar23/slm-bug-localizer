@@ -69,17 +69,19 @@ def submit_args(func_format: bool = False, ranked: bool = False, struct_answer: 
 
 
 def action_schema(tools: list, func_format: bool = False, ranked: bool = False,
-                  struct_answer: bool = False) -> dict:
+                  struct_answer: bool = False, evidence: bool = False) -> dict:
     """JSON schema for one agent step: a short thought plus exactly one tool call."""
     args = {**TOOL_ARGS, "submit": submit_args(func_format, ranked, struct_answer)}
     options = [{"type": "object",
                 "properties": {"tool": {"const": name}, **args[name]},
                 "required": ["tool", *args[name]], "additionalProperties": False}
                for name in tools]
-    return {"type": "object",
-            "properties": {"thought": {"type": "string", "maxLength": 400},
-                           "action": {"anyOf": options}},
-            "required": ["thought", "action"], "additionalProperties": False}
+    props = {"thought": {"type": "string", "maxLength": 400}}
+    if evidence:  # Evidence Buffer (C3): one short fact per step, may be empty
+        props["evidence"] = {"type": "string", "maxLength": 200}
+    props["action"] = {"anyOf": options}
+    return {"type": "object", "properties": props, "required": list(props),
+            "additionalProperties": False}
 
 
 def _cap(text: str) -> str:
@@ -132,3 +134,91 @@ class FileTools:
         name = action["tool"]
         args = {k: v for k, v in action.items() if k != "tool"}
         return getattr(self, name)(**args)
+
+
+# ---------------------------------------------------------------- graph tools (C2)
+
+GRAPH_TOOL_DOCS = """\
+find_definition(name): where a function, method, or class is defined: file, lines, signature. `name` is a plain name ("fuentes") or qualified ("Dataset.to_json_dict").
+get_code_neighbors(name): the call graph around a function: the functions it calls and the functions that call it, with file and line. Matched by name, so it can include same-named functions elsewhere.
+search_similar_code(query): the functions most related to a short description or error message, ranked by word overlap with their code.
+get_file_outline(path): every class, method, and function in a file, with line ranges.
+"""
+
+GRAPH_TOOL_ARGS = {
+    "find_definition": {"name": {"type": "string", "minLength": 2, "maxLength": 80}},
+    "get_code_neighbors": {"name": {"type": "string", "minLength": 2, "maxLength": 80}},
+    "search_similar_code": {"query": {"type": "string", "minLength": 3, "maxLength": 200}},
+    "get_file_outline": {"path": {"type": "string"}},
+}
+TOOL_ARGS.update(GRAPH_TOOL_ARGS)
+MAX_LIST = 15
+
+
+def _loc(s: dict) -> str:
+    return f"{s['file']}:{s['start']}-{s['end']}"
+
+
+class GraphTools(FileTools):
+    """File tools plus code-graph tools over a CodeIndex (agent/index.py)."""
+
+    def __init__(self, repo_dir: Path, index):
+        super().__init__(repo_dir)
+        self.index = index
+
+    def _match(self, name: str) -> list:
+        name = name.strip().removesuffix("()").split("::")[-1]
+        last = name.split(".")[-1]
+        cands = [i for i in self.index.by_name.get(last, [])]
+        if "." in name:  # qualified: prefer exact qualname suffix matches
+            exact = [i for i in cands if self.index.symbols[i]["qualname"].endswith(name)]
+            cands = exact or cands
+        return cands
+
+    def find_definition(self, name: str) -> str:
+        hits = self._match(name)
+        if not hits:
+            return f"No definition named {name!r}. Try search_similar_code or search_code."
+        rows = []
+        for i in hits[:MAX_LIST]:
+            s = self.index.symbols[i]
+            rows.append(f"{_loc(s)}  {s['kind']} {s['qualname']}: {s['signature']}"
+                        + (f"\n    \"{s['doc']}\"" if s["doc"] else ""))
+        more = f"\n... {len(hits) - MAX_LIST} more definitions" if len(hits) > MAX_LIST else ""
+        return _cap(f"{len(hits)} definition(s)\n" + "\n".join(rows) + more)
+
+    def get_code_neighbors(self, name: str) -> str:
+        hits = [i for i in self._match(name) if self.index.symbols[i]["kind"] != "class"]
+        if not hits:
+            return f"No function named {name!r}. Try find_definition or search_similar_code."
+        out = []
+        for i in hits[:3]:
+            s = self.index.symbols[i]
+            callees = []
+            for c in s["calls"]:
+                for j in self.index.by_name.get(c, [])[:3]:
+                    callees.append(f"{self.index.symbols[j]['qualname']} ({_loc(self.index.symbols[j])})")
+            callers = [f"{self.index.symbols[j]['qualname']} ({_loc(self.index.symbols[j])})"
+                       for j in sorted(self.index.callers.get(i, []))]
+            out.append(f"{s['qualname']} ({_loc(s)})\n"
+                       f"  calls ({len(callees)}): " + ("; ".join(callees[:MAX_LIST]) or "none in this repo") + "\n"
+                       f"  called by ({len(callers)}): " + ("; ".join(callers[:MAX_LIST]) or "none found"))
+        more = f"\n({len(hits) - 3} more functions share this name)" if len(hits) > 3 else ""
+        return _cap("\n".join(out) + more)
+
+    def search_similar_code(self, query: str) -> str:
+        hits = self.index.rank_symbols(query, MAX_LIST, kinds=("function", "method", "class"))
+        if not hits:
+            return "No related code found. Try different words."
+        return _cap("\n".join(f"{_loc(s)}  {s['kind']} {s['qualname']}: {s['signature'][:120]}"
+                              + (f"  \"{s['doc'][:80]}\"" if s["doc"] else "") for s, _ in hits))
+
+    def get_file_outline(self, path: str) -> str:
+        path = path.strip().lstrip("./").replace("\\", "/")
+        syms = [s for s in self.index.symbols if s["file"] == path]
+        if not syms:
+            self._resolve(path)
+            return f"No functions or classes indexed in {path} (not a Python file, or empty)."
+        rows = [f"{'    ' * s['qualname'].count('.')}{s['start']}-{s['end']}  {s['kind']} {s['qualname']}"
+                for s in sorted(syms, key=lambda s: s["start"])]
+        return _cap(f"{path}: {len(syms)} definitions\n" + "\n".join(rows))

@@ -31,11 +31,13 @@ MODEL_COLORS = {
     "gemma-4-e2b": PALETTE["blue_main"],
     "qwen3.5-4b": PALETTE["teal"],
     "gemma-4-31b": PALETTE["neutral"],
+    "bm25": PALETTE["red_strong"],
 }
 MODEL_LABELS = {
     "gemma-4-e2b": "Gemma 4 E2B",
     "qwen3.5-4b": "Qwen3.5-4B",
     "gemma-4-31b": "Gemma 4 31B (API)",
+    "bm25": "BM25 (no LLM)",
 }
 
 

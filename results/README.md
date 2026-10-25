@@ -12,5 +12,7 @@ One folder per experiment: `<date>_<NN>_<name>/` with `NOTES.md` (question, setu
 | 06 | [guard-dev](2026-10-25_06_guard-dev/NOTES.md) | + repeated-call guard + budget hints | Gemma forced submits 57% → 9%; accuracy unchanged |
 | 07 | [ranked-dev](2026-10-25_07_ranked-dev/NOTES.md) | + ranked candidate lists | Gemma Function@5 33% → 43%; Qwen unchanged |
 | 08 | [dev-ablation](2026-10-25_08_dev-ablation/NOTES.md) | Ladder comparison of 03–07 | Format matters most; no ladder step significant at n = 23 |
+| 09 | [c0-dev](2026-10-25_09_c0-dev/NOTES.md) | C0: BM25 retrieval, no model | File@1 35%, Function@5 43% (= Gemma's C1 agent) |
+| 10 | [c2-dev](2026-10-25_10_c2-dev/NOTES.md) | C2: + graph tools | Gemma Function@5 43% → 52%; models use graph tools for only 5–8% of calls |
 
 Regenerate everything: `python scripts/rescore.py`, then the `analysis/plot_*.py` command listed in each NOTES.md.

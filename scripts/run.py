@@ -16,13 +16,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from agent.llm import LlamaServer  # noqa: E402
+from agent.llm import ApiLLM, LlamaServer  # noqa: E402
 from agent.loop import OPTIONS, run_episode  # noqa: E402
 from agent.score import score  # noqa: E402
 from agent.checkpoint import checkpoint_dir, traj_dir  # noqa: E402
+from agent.index import build_index  # noqa: E402
 from agent.tasks import add_gold, checkout, load_tasks  # noqa: E402
 
-STEP_KEYS = ("step", "tool", "action", "valid", "error", "repeat_blocked", "prompt_tokens", "completion_tokens",
+STEP_KEYS = ("step", "tool", "action", "valid", "error", "repeat_blocked", "evidence", "prompt_tokens", "completion_tokens",
              "cached_tokens", "prompt_ms", "gen_ms", "observation_chars")
 
 
@@ -32,6 +33,7 @@ def main():
     ap.add_argument("--run", required=True, help="run name, e.g. c1_dev")
     ap.add_argument("--split", default="test", choices=["test", "dev"])
     ap.add_argument("--ids", nargs="*", help="instance ids (default: whole split)")
+    ap.add_argument("--ids-file", help="file with one instance id per line, e.g. data/test100.txt")
     ap.add_argument("--max-steps", type=int, default=20)
     ap.add_argument("--unconstrained", action="store_true")
     for opt in OPTIONS:
@@ -40,6 +42,8 @@ def main():
     options = {k: getattr(args, k) for k in OPTIONS}
 
     tasks = load_tasks(args.split)
+    if args.ids_file:
+        args.ids = (args.ids or []) + Path(args.ids_file).read_text().split()
     if args.ids:
         tasks = [t for t in tasks if t.instance_id in set(args.ids)]
     ckpt = checkpoint_dir(args.run)
@@ -48,7 +52,9 @@ def main():
     config_path = ckpt / "config.json"
     config = json.loads(config_path.read_text()) if config_path.exists() else {
         "experiment": ckpt.name, "split": args.split, "max_steps": args.max_steps,
-        "constrained": not args.unconstrained, "tools": "file tools (C1)", "options": options,
+        "constrained": not args.unconstrained,
+        "tools": ("file + graph tools" if options["graph_tools"] else "file tools")
+        + (" + Evidence Buffer" if options["evidence_buffer"] else ""), "options": options,
         "trajectories": str(trajs.parent), "models": {}}
     config["models"][args.model] = {"started": time.strftime("%Y-%m-%d %H:%M"),
                                     "n_tasks": len(tasks), "ids": args.ids}
@@ -58,12 +64,13 @@ def main():
                "options": options,
                "started": time.strftime("%Y-%m-%d %H:%M"), "tasks": []}
 
-    with LlamaServer(args.model) as llm:
+    with (ApiLLM() if args.model == "gemma-4-31b" else LlamaServer(args.model)) as llm:
         for n, task in enumerate(tasks, 1):
             repo_dir = checkout(task)
             add_gold(task)
+            index = build_index(repo_dir, f"{task.repo}@{task.base_commit}")                 if options["graph_tools"] else None
             ep = run_episode(llm, task, repo_dir, args.max_steps,
-                             constrained=not args.unconstrained, options=options)
+                             constrained=not args.unconstrained, options=options, index=index)
             ep.update(gold_files=task.gold_files, gold_functions=task.gold_functions,
                       metrics=score(ep["answer"], task.gold_files, task.gold_functions))
             (trajs / f"{task.instance_id}.json").write_text(json.dumps(ep, indent=1))

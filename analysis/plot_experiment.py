@@ -28,7 +28,9 @@ from agent.checkpoint import checkpoint_dir  # noqa: E402
 
 METRICS = [("file_acc_all@1", "File\n@1"), ("file_acc_all@5", "File\n@5"),
            ("func_acc_all@5", "Function\n@5"), ("func_acc_all@10", "Function\n@10")]
-MODEL_ORDER = ["gemma-4-e2b", "qwen3.5-4b", "gemma-4-31b"]
+MODEL_ORDER = ["bm25", "gemma-4-e2b", "qwen3.5-4b", "gemma-4-31b"]
+TOOL_ORDER = ["list_dir", "search_code", "read_file", "find_definition", "get_code_neighbors",
+              "search_similar_code", "get_file_outline", "submit"]
 
 
 def wilson(k, n, z=1.96):
@@ -47,7 +49,7 @@ def failure_modes(task, max_steps):
     return {
         "invalid_reply": any(not s["valid"] for s in steps),
         "tool_error": any(s["error"] and s["valid"] for s in steps),
-        "forced_submit": task["submitted"] and task["n_steps"] == max_steps,
+        "forced_submit": max_steps > 0 and task["submitted"] and task["n_steps"] == max_steps,
         "no_answer": not task["answer"]["files"],
         "malformed": bool(task["metrics"].get("func_malformed")),
         "repeat_steps": repeats, "n_steps": len(steps),
@@ -86,7 +88,7 @@ def main():
             "Forced submit (tasks)": np.mean([f["forced_submit"] for f in fm]),
             "Empty answer (tasks)": np.mean([f["no_answer"] for f in fm]),
             "Malformed function name (tasks)": np.mean([f["malformed"] for f in fm]),
-            "Repeated call (steps)": sum(f["repeat_steps"] for f in fm) / sum(f["n_steps"] for f in fm),
+            "Repeated call (steps)": sum(f["repeat_steps"] for f in fm) / max(1, sum(f["n_steps"] for f in fm)),
         }
         st["steps"] = [t["n_steps"] for t in tasks]
         st["wall_s"] = [t["wall_s"] for t in tasks]
@@ -99,7 +101,9 @@ def main():
                           hspace=0.5, wspace=0.42)
     ax_acc = fig.add_subplot(gs[0, 0])
     ax_steps, ax_time = fig.add_subplot(gs[0, 1]), fig.add_subplot(gs[0, 2])
-    ax_fail = fig.add_subplot(gs[1, :])
+    agent_models = [m for m in models if runs[m]["max_steps"] > 0]
+    ax_fail = fig.add_subplot(gs[1, :2] if agent_models else gs[1, :])
+    ax_tools = fig.add_subplot(gs[1, 2]) if agent_models else None
 
     # (a) accuracy with Wilson intervals
     x = np.arange(len(METRICS))
@@ -133,8 +137,9 @@ def main():
         ax.set_xticks(range(1, len(models) + 1), [MODEL_LABELS[m] for m in models], fontsize=9)
         ax.set_ylabel(label)
     max_steps = max(r["max_steps"] for r in runs.values())
-    ax_steps.axhline(max_steps, color=PALETTE["red_strong"], ls="--", lw=1)
-    ax_steps.text(0.5, max_steps, " step limit", color=PALETTE["red_strong"], va="bottom", fontsize=8)
+    if max_steps > 0:  # retrieval-only runs (C0) have no agent steps
+        ax_steps.axhline(max_steps, color=PALETTE["red_strong"], ls="--", lw=1)
+        ax_steps.text(0.5, max_steps, " step limit", color=PALETTE["red_strong"], va="bottom", fontsize=8)
     ax_steps.set_ylim(0, max_steps + 3)
     ax_time.set_ylim(0, max(max(stats[m]["wall_s"]) for m in models) * 1.1)
 
@@ -158,14 +163,40 @@ def main():
     handles = [Patch(facecolor=MODEL_COLORS[m], edgecolor="black",
                      label=f"{MODEL_LABELS[m]} (n={stats[m]['n_tasks']})") for m in models]
     fig.legend(handles=handles, loc="upper center", ncol=len(models), bbox_to_anchor=(0.5, 1.0))
-    fig.text(0.5, -0.04, "Error bars: 95% Wilson intervals. Forced submit: the model answered only "
+    fig.text(0.5, -0.04 if ax_tools is None else -0.13, "Error bars: 95% Wilson intervals. Forced submit: the model answered only "
              "when the step limit made it. Repeated call: identical to an earlier call in the episode.\n"
              "Malformed function name: not in the requested path.py::Name format (resolved against the "
              "model's submitted files for scoring when unambiguous).",
              ha="center", fontsize=8.5, color="#555555")
 
-    for a, letter in zip([ax_acc, ax_steps, ax_time, ax_fail], "abcd"):
-        panel_label(a, letter)
+    # (e) tool usage: share of each model's calls going to each tool
+    if ax_tools is not None:
+        tools = [t for t in TOOL_ORDER if any(s.get("tool") == t for m in agent_models
+                                              for task in runs[m]["tasks"] for s in task["steps"])]
+        cmap = plt.get_cmap("tab10")
+        left = np.zeros(len(agent_models))
+        for k, tool in enumerate(tools):
+            share = np.array([
+                sum(s.get("tool") == tool for task in runs[m]["tasks"] for s in task["steps"])
+                / max(1, sum(bool(s.get("tool")) for task in runs[m]["tasks"] for s in task["steps"]))
+                for m in agent_models]) * 100
+            ax_tools.barh(range(len(agent_models)), share, left=left, color=cmap(k), edgecolor="white",
+                          lw=0.6, label=tool)
+            left += share
+        ax_tools.set_yticks(range(len(agent_models)), [MODEL_LABELS[m] for m in agent_models], fontsize=9)
+        ax_tools.invert_yaxis()
+        ax_tools.set_xlim(0, 100)
+        ax_tools.set_xlabel("Share of tool calls (%)")
+        ax_tools.grid(axis="y", visible=False)
+        ax_tools.legend(loc="upper center", bbox_to_anchor=(0.45, -0.3), ncol=2, fontsize=7.5,
+                        handlelength=1.2, columnspacing=0.8)
+        stats_tools = {m: {t: int(sum(s.get("tool") == t for task in runs[m]["tasks"] for s in task["steps"]))
+                           for t in tools} for m in agent_models}
+        (ckpt / "tool_usage.json").write_text(json.dumps(stats_tools, indent=1))
+
+    for a, letter in zip([ax_acc, ax_steps, ax_time, ax_fail, ax_tools], "abcde"):
+        if a is not None:
+            panel_label(a, letter)
     for p in finalize_figure(fig, "summary", ckpt / "figures"):
         print(p)
 

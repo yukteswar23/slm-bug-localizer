@@ -11,6 +11,7 @@ file only.
 
 import ast
 import json
+import os
 import re
 import subprocess
 from dataclasses import dataclass, field
@@ -18,7 +19,9 @@ from pathlib import Path
 
 WORK = Path("C:/gemma_work")
 DATA = WORK / "data"
-REPOS = WORK / "repos"
+# A separate clone folder lets two runs (e.g. the API reference and a GPU run)
+# check out different commits of the same repo at the same time.
+REPOS = Path(os.environ.get("SLM_REPOS_DIR", WORK / "repos"))
 HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+\d+(?:,\d+)? @@")
 
 
