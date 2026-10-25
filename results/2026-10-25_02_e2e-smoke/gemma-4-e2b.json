@@ -26,6 +26,7 @@
     "astropy/modeling/separable.py::_cstack"
    ],
    "metrics": {
+    "func_malformed": 0.0,
     "file_acc_all@1": 1.0,
     "file_hit@1": 1.0,
     "file_acc_all@3": 1.0,
@@ -48,7 +49,11 @@
      "cached_tokens": 0,
      "prompt_ms": 413.51,
      "gen_ms": 1060.181,
-     "observation_chars": 251
+     "observation_chars": 251,
+     "action": {
+      "tool": "list_dir",
+      "path": "."
+     }
     },
     {
      "step": 1,
@@ -60,7 +65,12 @@
      "cached_tokens": 741,
      "prompt_ms": 87.585,
      "gen_ms": 1317.631,
-     "observation_chars": 2308
+     "observation_chars": 2308,
+     "action": {
+      "tool": "search_code",
+      "pattern": "separability_matrix",
+      "path": "."
+     }
     },
     {
      "step": 2,
@@ -72,7 +82,13 @@
      "cached_tokens": 924,
      "prompt_ms": 342.081,
      "gen_ms": 2495.108,
-     "observation_chars": 4037
+     "observation_chars": 4037,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 66,
+      "end_line": 304
+     }
     },
     {
      "step": 3,
@@ -84,7 +100,12 @@
      "cached_tokens": 1821,
      "prompt_ms": 609.571,
      "gen_ms": 2068.511,
-     "observation_chars": 2692
+     "observation_chars": 2692,
+     "action": {
+      "tool": "search_code",
+      "pattern": "_separable",
+      "path": "."
+     }
     },
     {
      "step": 4,
@@ -96,7 +117,13 @@
      "cached_tokens": 3348,
      "prompt_ms": 411.172,
      "gen_ms": 2340.373,
-     "observation_chars": 4038
+     "observation_chars": 4038,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/core.py",
+      "start_line": 1535,
+      "end_line": 2826
+     }
     },
     {
      "step": 5,
@@ -108,7 +135,13 @@
      "cached_tokens": 4391,
      "prompt_ms": 598.74,
      "gen_ms": 2735.71,
-     "observation_chars": 214
+     "observation_chars": 214,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 100,
+      "end_line": 103
+     }
     },
     {
      "step": 6,
@@ -120,7 +153,12 @@
      "cached_tokens": 5844,
      "prompt_ms": 83.124,
      "gen_ms": 1468.565,
-     "observation_chars": 2692
+     "observation_chars": 2692,
+     "action": {
+      "tool": "search_code",
+      "pattern": "_separable",
+      "path": "."
+     }
     },
     {
      "step": 7,
@@ -132,7 +170,13 @@
      "cached_tokens": 6019,
      "prompt_ms": 415.885,
      "gen_ms": 1889.953,
-     "observation_chars": 214
+     "observation_chars": 214,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 100,
+      "end_line": 103
+     }
     },
     {
      "step": 8,
@@ -144,7 +188,13 @@
      "cached_tokens": 7011,
      "prompt_ms": 84.355,
      "gen_ms": 2212.229,
-     "observation_chars": 214
+     "observation_chars": 214,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 100,
+      "end_line": 103
+     }
     },
     {
      "step": 9,
@@ -156,7 +206,12 @@
      "cached_tokens": 7227,
      "prompt_ms": 83.522,
      "gen_ms": 1608.135,
-     "observation_chars": 2692
+     "observation_chars": 2692,
+     "action": {
+      "tool": "search_code",
+      "pattern": "_separable",
+      "path": "."
+     }
     },
     {
      "step": 10,
@@ -168,7 +223,13 @@
      "cached_tokens": 740,
      "prompt_ms": 2602.984,
      "gen_ms": 2379.863,
-     "observation_chars": 214
+     "observation_chars": 214,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 100,
+      "end_line": 103
+     }
     },
     {
      "step": 11,
@@ -180,7 +241,13 @@
      "cached_tokens": 7553,
      "prompt_ms": 112.089,
      "gen_ms": 2240.824,
-     "observation_chars": 214
+     "observation_chars": 214,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 100,
+      "end_line": 103
+     }
     },
     {
      "step": 12,
@@ -192,7 +259,13 @@
      "cached_tokens": 740,
      "prompt_ms": 2190.278,
      "gen_ms": 2289.954,
-     "observation_chars": 1626
+     "observation_chars": 1626,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 100,
+      "end_line": 150
+     }
     },
     {
      "step": 13,
@@ -204,7 +277,13 @@
      "cached_tokens": 6621,
      "prompt_ms": 303.265,
      "gen_ms": 2472.438,
-     "observation_chars": 1626
+     "observation_chars": 1626,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 100,
+      "end_line": 150
+     }
     },
     {
      "step": 14,
@@ -216,7 +295,13 @@
      "cached_tokens": 740,
      "prompt_ms": 2448.407,
      "gen_ms": 3309.754,
-     "observation_chars": 4037
+     "observation_chars": 4037,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 150,
+      "end_line": 300
+     }
     },
     {
      "step": 15,
@@ -228,7 +313,13 @@
      "cached_tokens": 740,
      "prompt_ms": 2627.652,
      "gen_ms": 2440.599,
-     "observation_chars": 1395
+     "observation_chars": 1395,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 219,
+      "end_line": 262
+     }
     },
     {
      "step": 16,
@@ -240,7 +331,12 @@
      "cached_tokens": 740,
      "prompt_ms": 2525.572,
      "gen_ms": 2154.25,
-     "observation_chars": 3747
+     "observation_chars": 3747,
+     "action": {
+      "tool": "search_code",
+      "pattern": "CompoundModel",
+      "path": "."
+     }
     },
     {
      "step": 17,
@@ -252,7 +348,13 @@
      "cached_tokens": 740,
      "prompt_ms": 2662.973,
      "gen_ms": 2341.359,
-     "observation_chars": 4037
+     "observation_chars": 4037,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 100,
+      "end_line": 317
+     }
     },
     {
      "step": 18,
@@ -264,7 +366,13 @@
      "cached_tokens": 740,
      "prompt_ms": 2533.143,
      "gen_ms": 2718.967,
-     "observation_chars": 4037
+     "observation_chars": 4037,
+     "action": {
+      "tool": "read_file",
+      "path": "astropy/modeling/separable.py",
+      "start_line": 100,
+      "end_line": 317
+     }
     },
     {
      "step": 19,
@@ -276,7 +384,16 @@
      "cached_tokens": 740,
      "prompt_ms": 2782.359,
      "gen_ms": 2119.918,
-     "observation_chars": null
+     "observation_chars": null,
+     "action": {
+      "tool": "submit",
+      "files": [
+       "astropy/modeling/separable.py"
+      ],
+      "functions": [
+       "astropy/modeling/separable.py::_separable"
+      ]
+     }
     }
    ]
   }

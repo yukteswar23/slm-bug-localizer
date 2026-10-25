@@ -1,0 +1,20 @@
+{
+ "experiment": "2026-10-25_03_c1-dev",
+ "split": "dev",
+ "max_steps": 20,
+ "constrained": true,
+ "tools": "file tools (C1)",
+ "trajectories": "C:\\gemma_work\\runs\\2026-10-25_03_c1-dev",
+ "models": {
+  "gemma-4-e2b": {
+   "started": "2026-10-25 19:09",
+   "n_tasks": 23,
+   "ids": null
+  },
+  "qwen3.5-4b": {
+   "started": "2026-10-25 19:31",
+   "n_tasks": 23,
+   "ids": null
+  }
+ }
+}

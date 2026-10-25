@@ -8,6 +8,14 @@ class prefix also matches a gold method of the same name in the same file
 (small models often drop the class). Module-style paths are normalized to
 file paths ("pkg.mod.py" or "pkg.mod" -> "pkg/mod.py") because the intent is
 unambiguous; small models often write them that way.
+
+Function entries not in the requested "path.py::Name" format are resolved
+against the model's own submitted files: a dotted name "pkg.mod.Class.f" is
+matched to the submitted file pkg/mod.py, and a bare "Class.f" is assigned to
+the top submitted file. Entries that still cannot be resolved (line numbers,
+file names in place of functions) count as wrong. `func_malformed` records
+whether ANY entry needed repair, so format failures stay visible as their own
+failure mode.
 """
 
 import re
@@ -26,9 +34,42 @@ def norm_path(p: str) -> str:
     return p
 
 
-def norm_func(f: str) -> str:
-    path, _, name = f.partition("::")
-    return f"{norm_path(path)}::{name.strip().removesuffix('()')}"
+CANONICAL = re.compile(r"^[\w./-]+\.py::[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$")
+QUALNAME = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$")
+
+
+def is_canonical(f: str) -> bool:
+    """Exactly the requested format: path/to/file.py::Qual.name"""
+    f = f.strip()
+    return bool(CANONICAL.match(f)) and is_qualname(f.split("::", 1)[1])
+
+
+def is_qualname(name: str) -> bool:
+    return bool(QUALNAME.match(name)) and name.rsplit(".", 1)[-1] != "py"
+
+
+def module_of(path: str) -> list:
+    """Import names a file can appear under: pkg/mod.py -> pkg.mod (and without src/)."""
+    mod = path.removesuffix(".py").removesuffix("/__init__").replace("/", ".")
+    return [mod, mod.removeprefix("src.")] if mod.startswith("src.") else [mod]
+
+
+def norm_func(f: str, files: list):
+    """Canonical "path.py::Qual.name", or None if the entry cannot be resolved."""
+    f = f.strip().removesuffix("()")
+    if "::" in f:
+        path, _, name = f.partition("::")
+        path, name = norm_path(path), name.strip().removesuffix("()")
+        return f"{path}::{name}" if path.endswith(".py") and is_qualname(name) else None
+    if not is_qualname(f):
+        return None
+    for path in files:  # dotted "pkg.mod.Class.f": find the submitted file it lives in
+        for mod in module_of(path):
+            if f.startswith(mod + "."):
+                return f"{path}::{f[len(mod) + 1:]}"
+    # bare "func" or "Class.method" belongs to the top submitted file; longer dotted
+    # names are module paths we could not match to a submitted file
+    return f"{files[0]}::{f}" if files and f.count(".") <= 1 else None
 
 
 def func_match(pred: str, gold: str) -> bool:
@@ -50,8 +91,9 @@ def dedup(items):
 
 def score(answer: dict, gold_files: list, gold_functions: list) -> dict:
     files = dedup(norm_path(f) for f in answer.get("files", []))
-    funcs = dedup(norm_func(f) for f in answer.get("functions", []) if f.strip())
-    res = {}
+    raw = [f for f in answer.get("functions", []) if f.strip()]
+    funcs = dedup(n for n in (norm_func(f, files) for f in raw) if n)
+    res = {"func_malformed": float(any(not is_canonical(f) for f in raw))}
     for k in (1, 3, 5):
         top = files[:k]
         res[f"file_acc_all@{k}"] = float(all(g in top for g in gold_files))

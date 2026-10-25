@@ -1,8 +1,8 @@
 """Run localization episodes for one model and configuration.
 
-Full trajectories go to C:/gemma_work/runs/<run>/<model>/<instance_id>.json;
-a compact summary (metrics + step statistics, no trajectories) goes to
-results/runs/<run>__<model>.json so it can be tracked in git and plotted.
+Results go to the experiment's checkpoint folder results/<date>_<NN>_<run>/
+(see agent/checkpoint.py): <model>.json with metrics and step statistics, and
+config.json. Full trajectories go to C:/gemma_work/runs/<same folder>/<model>/.
 
     python scripts/run.py --model gemma-4-e2b --run e2e_smoke --ids astropy__astropy-12907
     python scripts/run.py --model qwen3.5-4b --run c1_dev --split dev
@@ -19,9 +19,10 @@ sys.path.insert(0, str(ROOT))
 from agent.llm import LlamaServer  # noqa: E402
 from agent.loop import run_episode  # noqa: E402
 from agent.score import score  # noqa: E402
-from agent.tasks import WORK, add_gold, checkout, load_tasks  # noqa: E402
+from agent.checkpoint import checkpoint_dir, traj_dir  # noqa: E402
+from agent.tasks import add_gold, checkout, load_tasks  # noqa: E402
 
-STEP_KEYS = ("step", "tool", "valid", "error", "prompt_tokens", "completion_tokens",
+STEP_KEYS = ("step", "tool", "action", "valid", "error", "prompt_tokens", "completion_tokens",
              "cached_tokens", "prompt_ms", "gen_ms", "observation_chars")
 
 
@@ -38,10 +39,17 @@ def main():
     tasks = load_tasks(args.split)
     if args.ids:
         tasks = [t for t in tasks if t.instance_id in set(args.ids)]
-    traj_dir = WORK / "runs" / args.run / args.model
-    traj_dir.mkdir(parents=True, exist_ok=True)
-    summary_path = ROOT / "results" / "runs" / f"{args.run}__{args.model}.json"
-    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    ckpt = checkpoint_dir(args.run)
+    trajs = traj_dir(ckpt, args.model)
+    summary_path = ckpt / f"{args.model}.json"
+    config_path = ckpt / "config.json"
+    config = json.loads(config_path.read_text()) if config_path.exists() else {
+        "experiment": ckpt.name, "split": args.split, "max_steps": args.max_steps,
+        "constrained": not args.unconstrained, "tools": "file tools (C1)",
+        "trajectories": str(trajs.parent), "models": {}}
+    config["models"][args.model] = {"started": time.strftime("%Y-%m-%d %H:%M"),
+                                    "n_tasks": len(tasks), "ids": args.ids}
+    config_path.write_text(json.dumps(config, indent=1))
     summary = {"run": args.run, "model": args.model, "split": args.split,
                "max_steps": args.max_steps, "constrained": not args.unconstrained,
                "started": time.strftime("%Y-%m-%d %H:%M"), "tasks": []}
@@ -54,7 +62,7 @@ def main():
                              constrained=not args.unconstrained)
             ep.update(gold_files=task.gold_files, gold_functions=task.gold_functions,
                       metrics=score(ep["answer"], task.gold_files, task.gold_functions))
-            (traj_dir / f"{task.instance_id}.json").write_text(json.dumps(ep, indent=1))
+            (trajs / f"{task.instance_id}.json").write_text(json.dumps(ep, indent=1))
             summary["tasks"].append({
                 k: ep[k] for k in ("instance_id", "answer", "submitted", "n_steps", "wall_s",
                                    "gold_files", "gold_functions", "metrics")}

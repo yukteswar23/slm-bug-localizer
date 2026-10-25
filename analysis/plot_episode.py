@@ -4,10 +4,10 @@
 (b) wall time per step, split into prompt processing and generation
 (c) tool calls per episode by tool, with invalid replies and tool errors
 
-Input:  results/runs/<run>__<model>.json
-Output: figures/episode_<run>[_<instance>].{pdf,png}
+Input:  results/<checkpoint>/<model>.json
+Output: results/<checkpoint>/figures/episode_<instance>.{pdf,png}
 
-    python analysis/plot_episode.py --run e2e_smoke --instance astropy__astropy-12907
+    python analysis/plot_episode.py --exp e2e-smoke --instance astropy__astropy-12907
 """
 
 import argparse
@@ -19,16 +19,20 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from figstyle import (MODEL_COLORS, MODEL_LABELS, PALETTE, RESULTS_DIR,  # noqa: E402
+from figstyle import (MODEL_COLORS, MODEL_LABELS, PALETTE,  # noqa: E402
                       apply_publication_style, finalize_figure, panel_label, plt)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from agent.checkpoint import checkpoint_dir  # noqa: E402
 
 TOOL_ORDER = ["list_dir", "search_code", "read_file", "submit", "invalid", "tool error"]
 
 
-def load(run, instance):
+def load(ckpt, instance):
     out = {}
-    for path in sorted((RESULTS_DIR / "runs").glob(f"{run}__*.json")):
+    for path in sorted(ckpt.glob("*.json")):
         s = json.loads(path.read_text())
+        if "tasks" not in s:
+            continue
         task = next(t for t in s["tasks"] if instance in (None, t["instance_id"]))
         out[s["model"]] = task
     return out
@@ -36,10 +40,11 @@ def load(run, instance):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--run", required=True)
-    ap.add_argument("--instance")
+    ap.add_argument("--exp", required=True, help="checkpoint name, e.g. e2e-smoke")
+    ap.add_argument("--instance", required=True)
     args = ap.parse_args()
-    data = load(args.run, args.instance)
+    ckpt = checkpoint_dir(args.exp, create=False)
+    data = load(ckpt, args.instance)
 
     apply_publication_style()
     max_steps = max(len(t["steps"]) for t in data.values())
@@ -95,8 +100,7 @@ def main():
     for a, letter in zip(axes[0], "abc"):
         panel_label(a, letter)
     fig.tight_layout()
-    name = f"episode_{args.run}" + (f"_{args.instance}" if args.instance else "")
-    for p in finalize_figure(fig, name):
+    for p in finalize_figure(fig, f"episode_{args.instance}", ckpt / "figures"):
         print(p)
 
 

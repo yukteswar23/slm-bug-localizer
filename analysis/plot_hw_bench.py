@@ -1,7 +1,7 @@
 """Figure: inference speed and VRAM of the candidate models on the RTX 2050.
 
 Input:  llama-bench markdown + 1 Hz nvidia-smi VRAM logs in C:/gemma_work/bench/
-Output: results/hw_bench.json, figures/hw_bench.{pdf,png}
+Output: results/<date>_01_hw-bench/results.json and figures/hw_bench.{pdf,png}
 
     python analysis/plot_hw_bench.py
 """
@@ -14,8 +14,12 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from figstyle import (MODEL_COLORS, MODEL_LABELS, PALETTE, RESULTS_DIR,  # noqa: E402
+from figstyle import (MODEL_COLORS, MODEL_LABELS, PALETTE,  # noqa: E402
                       apply_publication_style, finalize_figure, panel_label, plt)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from agent.checkpoint import checkpoint_dir  # noqa: E402
+
+CKPT = checkpoint_dir("hw-bench")
 
 BENCH_DIR = Path("C:/gemma_work/bench")
 RUNS = {  # model key -> file stem used by the benchmark run
@@ -39,8 +43,7 @@ def ingest():
                         "vram_mib_1hz": vram, "peak_vram_mib": max(vram)}
     out = {"date": "2026-10-25", "gpu": "RTX 2050 4 GB", "runtime": "llama.cpp b11873 CUDA 13.4",
            "settings": "ngl=99, flash-attn on, 2 repetitions", "models": results}
-    RESULTS_DIR.mkdir(exist_ok=True)
-    (RESULTS_DIR / "hw_bench.json").write_text(json.dumps(out, indent=1))
+    (CKPT / "results.json").write_text(json.dumps(out, indent=1))
     return out
 
 
@@ -95,7 +98,7 @@ def main():
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=len(labels), bbox_to_anchor=(0.5, 1.07))
     fig.tight_layout()
-    for p in finalize_figure(fig, "hw_bench"):
+    for p in finalize_figure(fig, "hw_bench", CKPT / "figures"):
         print(p)
 
 

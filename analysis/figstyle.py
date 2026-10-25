@@ -14,7 +14,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-FIG_DIR = ROOT / "figures"
+FIG_DIR = ROOT / "figures"  # paper-ready copies; experiment figures live in each checkpoint
 RESULTS_DIR = ROOT / "results"
 
 PALETTE = {
@@ -79,11 +79,12 @@ def panel_label(ax, letter: str):
             fontweight="bold", va="bottom", ha="left")
 
 
-def finalize_figure(fig, name: str, formats=("pdf", "png"), dpi=300):
-    FIG_DIR.mkdir(parents=True, exist_ok=True)
+def finalize_figure(fig, name: str, out_dir: Path = FIG_DIR, formats=("pdf", "png"), dpi=300):
+    """Save into out_dir (normally <checkpoint>/figures)."""
+    out_dir.mkdir(parents=True, exist_ok=True)
     paths = []
     for fmt in formats:
-        path = FIG_DIR / f"{name}.{fmt}"
+        path = out_dir / f"{name}.{fmt}"
         fig.savefig(path, dpi=dpi, pad_inches=0.05)
         paths.append(path)
     plt.close(fig)
