@@ -15,7 +15,7 @@ See [PLAN.md](PLAN.md) for the full plan, experiments, and timeline.
 | Path | Contents |
 |---|---|
 | `agent/` | Agent harness and model clients |
-| `docs/competition/` | Kaggle Gemma 4 Paper Track rules and overview |
+| `docs/competition/` | Kaggle rules and overview (local only, gitignored) |
 | `PLAN.md` | Research plan |
 
 Status: early development.
