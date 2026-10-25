@@ -1,145 +1,131 @@
-# GraphAgent: Compute & Storage Budget Plan
+# GraphAgent: Offline Distillation Plan (31B teacher → 4 GB student)
 
 **Competition:** Google × Kaggle Gemma 4 Developer Agent Paper Track
-**Deadline:** November 12, 2026, 11:59 PM UTC
-**Plan written:** October 13, 2026 (about 4 weeks left)
+**Deadline:** November 12, 2026, 11:59 PM UTC (we submit Nov 11)
+**Plan revised:** October 21, 2026 (22 days left). Replaces the A5000-based plan and the API-only draft.
 
-> All sizes and throughput figures below are estimates. Check them against real numbers during Week 1 and update this file.
+> Throughput figures are estimates from one smoke-test call. Replace them with numbers from `logs/gemma_usage.jsonl` after the first full episode.
 
 ---
 
-## 1. Available Hardware
+## 1. Goal
 
-| Resource | Spec | Assessment |
+An agent that **runs fully offline on a 4 GB laptop GPU** and localizes (and where possible fixes) real bugs, built by distilling **Gemma 4 31B** into **Gemma 4 E2B**.
+
+Headline claim we test: *a 2B Gemma agent on a 4 GB GPU retains X% of a 31B teacher's bug-localization accuracy, using graph tools and an Evidence Buffer.*
+
+The API is used only for development: the 31B teacher generates training data and is the upper-bound comparison. The submitted agent makes no API calls.
+
+---
+
+## 2. Resources
+
+| Resource | Details | Role |
 |---|---|---|
-| GPU | 1× NVIDIA RTX A5000, 24 GB VRAM (Ampere), CUDA 12.8 | **Main constraint** |
-| System RAM | 251 GB | Plenty |
-| CPU | 64 cores | Plenty: parallel Docker tests, graph building, CPU embeddings |
-| Disk `/` (NVMe) | **687 GB free** | **Primary work disk** |
-| Disk `/data` | 186 GB free | Backups and archived checkpoints |
-| Disk `/home` | 9.5 GB free (99% full) | **Do not use.** Move all caches off `~/` |
-| Disk `/mnt/storage` | 0 free | Not usable |
+| Laptop | RTX 2050 **4 GB** (Ampere, cc 8.6), 14 GB RAM, Ryzen 5 5500H, **33.6 GB free on C:** | Offline student inference + evaluation; graph building |
+| Gemini API free tier | Gemma 4 31B and 26B-A4B; 30 RPM · 16K TPM · 14.4K RPD per model; free; no tuning | Teacher trajectories, 31B baseline |
+| Kaggle free notebooks | T4 16 GB, weekly GPU quota; datasets for storage | QLoRA training of the student; public notebook; trajectory dataset |
+| Nebius Token Factory | Paid | Overflow teacher inference only if behind schedule |
+| Friend's Gemini Pro | Gemini app / CLI | Annotation help, LLM-as-judge. **Not** a source of training data |
+| `sb-cli` | Free SWE-bench cloud evaluation | Resolve-rate check on a subset |
+
+Measured API behaviour (2026-10-21): 31B latency ~22–32 s/call, frequent 500s (client retries), always "thinks" (~4× the answer length), thinking cannot be disabled.
 
 ---
 
-## 2. Disk Budget (on `/`)
+## 3. Models
 
-| Item | Estimated size | Notes |
-|---|---|---|
-| OS packages, CUDA, PyTorch, vLLM, Unsloth, conda envs | 30 GB | |
-| Gemma 4 31B QAT checkpoint, full precision (for training) | 62 GB | Download once with `local_dir=`; don't let the HF cache keep a duplicate copy |
-| Gemma 4 31B W4A16 / quantized (for inference) | 20 GB | Used for vLLM rollouts and evaluation |
-| LoRA adapters and checkpoints | 10 GB | About 400 MB each; keep the last 3 and move the rest to `/data` |
-| SWE-bench Verified Docker images | 150 GB | Use `--cache_level env`; prune if the disk gets tight |
-| SWE-Gym subset Docker images (300–500 tasks) | 150 GB | Build in batches; run `docker system prune` between batches |
-| Repo clones, Tree-sitter graphs, embedding indexes | 20 GB | For the graph tools and GraphNav-Bench |
-| Trajectories, SFT data, rollout logs | 15 GB | |
-| **Total planned** | **~457 GB** | |
-| **Headroom** | **~230 GB** | Safety margin out of 687 GB |
-
-### One-time setup
-
-```bash
-sudo mkdir -p /work && sudo chown $USER /work
-cat >> ~/.bashrc <<'EOF'
-export HF_HOME=/work/hf
-export PIP_CACHE_DIR=/work/pip
-export CONDA_PKGS_DIRS=/work/conda_pkgs
-export TMPDIR=/work/tmp
-EOF
-mkdir -p /work/{hf,pip,conda_pkgs,tmp,models,data,ckpt,repos,logs}
-
-# Docker must store its data on / (default /var/lib/docker)
-docker info | grep "Docker Root Dir"
-```
-
-If this is a shared server, confirm with the admin that you can use about 450 GB on `/`.
-
----
-
-## 3. GPU Memory Budget (24 GB A5000)
-
-| Stage | VRAM use | Feasible? | Settings |
+| Role | Model | Where | Size |
 |---|---|---|---|
-| Inference, 31B W4A16 | ~17 GB weights + ~6 GB KV cache | ✅ | Max context ~16k; `--gpu-memory-utilization 0.95`; try a KV-cache dtype that saves memory |
-| QLoRA SFT, 31B | ~17 GB weights + LoRA + activations | ✅ | Unsloth, sequence length 4–8k, batch 1, gradient accumulation 16, gradient checkpointing |
-| Full-trajectory SFT (30k+ tokens) | > 24 GB | ❌ | Use step-level examples instead (see §4) |
-| GRPO on 31B | ≫ 24 GB | ❌ | Replaced with rejection-sampling fine-tuning (expert iteration); optional cloud GRPO |
-
-The GPU can't run inference and training simultaneously. Schedule them in alternating phases: **generate rollouts → train → generate → train**.
+| Teacher | Gemma 4 31B | Gemini API | — |
+| Dev / fast teacher | Gemma 4 26B-A4B | Gemini API | — |
+| **Student (main)** | **Gemma 4 E2B**, 4-bit GGUF | Laptop, llama.cpp, fully on GPU | ~2.9 GB weights, ~1 GB for KV cache → ~8K context |
+| Student (stretch) | Gemma 4 E4B, 4-bit GGUF | Laptop, partial CPU offload | ~4.5 GB, slower |
 
 ---
 
-## 4. Method Changes Required by the Hardware
+## 4. Method
 
-1. **Step-level SFT built around the Evidence Buffer.** Each training example contains *issue + Evidence Buffer summary + last k tool calls → next action*. That fits in 8k tokens. It also makes the Evidence Buffer's purpose clear: it keeps the context small.
-2. **Graph-RLVR becomes rejection-sampling fine-tuning (expert iteration).** Generate N rollouts per task, keep the ones that pass the tests (giving extra weight to runs that used fewer tool calls), and fine-tune on those. Repeat 2–3 rounds. The paper can still honestly call this RL from verifiable rewards.
-3. **DR-LoRA** (dynamic-rank LoRA: higher rank on attention, lower on FFN) still works under QLoRA. It's one of the ablations.
-4. **Optional real GRPO:** rent 1× H100 80 GB for 10–20 hours (about $25–60) in Week 4, only if expert iteration results are strong.
-5. **GraphNav-Bench scope:** 150–200 annotated issues for the deadline; present 500 as the planned full release.
+1. **Agent harness** (shared by teacher and student): graph tools (Tree-sitter + call graph + embeddings: `get_code_neighbors`, `search_similar_code`, `get_code_subgraph`), file tools, **Evidence Buffer**, **Budget Management Policy**.
+2. **Small context by design:** prompt ≤ 8K tokens per step. This satisfies both the 16K TPM API limit and the ~8K context that fits in 4 GB VRAM.
+3. **Teacher data:** ~300 teacher episodes on SWE-bench-style tasks (SWE-Gym / SWE-bench train-split repos, **disjoint from the eval set**).
+4. **Filtering (RLVR-lite):** keep episodes that reached the gold location (and passed tests where checked); prefer fewer tool calls.
+5. **Step-level distillation:** each example = issue + Evidence Buffer + last k tool calls → teacher's next action (with a short rationale; teacher thoughts included if the API exposes them). Expected ~4–5K examples.
+6. **Student training:** QLoRA SFT of E2B on Kaggle T4 (Unsloth), seq len ≤ 8K, ~6–10 GPU hours. DR-LoRA vs. uniform LoRA as an ablation if quota allows.
+7. **Export:** merge LoRA → GGUF Q4 → llama.cpp on the RTX 2050.
 
 ---
 
-## 5. GPU Time Budget
+## 5. Evaluation
 
-Throughput estimates: about 300 tokens/s output across batched requests with vLLM on an A5000; each episode is about 50 tool calls / ~15k output tokens, so **about 1–2 episodes per minute**.
+**Primary metric:** localization accuracy (file / function hit vs. gold patch) and tool calls used. **Secondary:** resolve rate via `sb-cli` on a subset. **Efficiency:** tokens/episode, latency, VRAM on the RTX 2050.
 
-| Job | GPU hours |
+| System | Where it runs |
 |---|---|
-| Baseline evaluation (50-task Verified subset, no fine-tuning) | 1 |
-| Teacher/seed trajectory generation for SFT data | 8 |
-| SFT run #1 (about 3k step-level examples, 2 epochs) | 10 |
-| Expert iteration rounds 1–3 (rollouts + training) | 3 × 12 = 36 |
-| Ablations (DR-LoRA vs. uniform LoRA, buffer on/off, graph tools on/off, budget policy on/off) | 25 |
-| Final evaluation (full 500 Verified + competition harness) | 12 |
-| Hardware profiling (VRAM, latency, throughput) | 2 |
-| **Total** | **~94 GPU hours** (fits in 4 weeks if the GPU runs overnight) |
+| 31B teacher (upper bound) | API |
+| E2B base, no graph tools | Laptop |
+| E2B base + graph tools + Evidence Buffer | Laptop |
+| **E2B distilled + graph tools + Evidence Buffer** | Laptop |
+| Ablations: distilled without graph tools; without Evidence Buffer; without budget policy | Laptop |
+| Stretch: E4B distilled | Laptop (offload) |
+
+Eval set: 50 SWE-bench Verified tasks (30 if behind schedule).
 
 ---
 
-## 6. Week-by-Week Plan
+## 6. Storage (target ≤ 20 GB on the laptop)
 
-### Week 1: Oct 13–19 · Setup & Baseline
-- [ ] Do the one-time setup in §2; confirm disk permissions and Docker root
-- [ ] Download the Gemma 4 31B QAT checkpoint and serve it with vLLM; measure real VRAM use and tokens/s
-- [ ] Install SWE-bench; build env images for a 50-task Verified subset
-- [ ] Implement the graph tools: `get_code_neighbors`, `search_similar_code`, `get_code_subgraph` (Tree-sitter + call graph + embeddings)
-- [ ] Implement the Evidence Buffer and Budget Management Policy (thresholds: exploit at >75 calls, submit at >90)
-- [ ] **Milestone:** baseline resolve rate on the 50-task subset, with and without the graph tools
+**Bulk data lives outside OneDrive** (`C:\gemma_work\`), otherwise OneDrive will try to sync gigabytes. The OneDrive project folder holds only code, `budget.md`, and the paper.
 
-### Week 2: Oct 20–26 · SFT Data & First Training
-- [ ] Generate seed trajectories on the SWE-Gym subset; keep only runs that pass the tests
-- [ ] Convert them into step-level examples (≤8k tokens) with Evidence Buffer summaries
-- [ ] QLoRA SFT run #1 with DR-LoRA
-- [ ] Start GraphNav-Bench annotation: schema, gold navigation paths, minimum tool budgets (target ~75 issues)
-- [ ] **Milestone:** SFT model beats the baseline on the 50-task subset
+| Item | Size | Notes |
+|---|---|---|
+| Python env, llama.cpp | ~5 GB | |
+| Student GGUFs (E2B base + distilled; E4B optional) | ~6 GB (+5) | Delete E4B if space is tight |
+| Repo clones for eval tasks | ~3 GB | `git clone --filter=blob:none`, check out per task |
+| Graphs + embedding indexes | ~3–5 GB | Build per task, fp16 embeddings, delete after the run; keep only eval-set indexes |
+| Trajectories, logs, GraphNav-Bench | ~1–2 GB | Mirrored to a private Kaggle dataset (needed for training anyway) |
+| **Total** | **~18–21 GB** | Leaves ~12 GB free on C: |
 
-### Week 3: Oct 27–Nov 2 · Expert Iteration & Ablations
-- [ ] Expert iteration rounds 1–3 (sample → filter by tests + efficiency → retrain)
-- [ ] Ablation runs (§5)
-- [ ] Bring GraphNav-Bench to 150–200 issues; build the difficulty taxonomy
-- [ ] Start the paper: Intro, Related Work, Method
-- [ ] **Decision point (Nov 1):** rent an H100 for GRPO, or not
-
-### Week 4: Nov 3–9 · Final Evaluation & Paper
-- [ ] Final evaluation: competition harness + full SWE-bench Verified
-- [ ] Hardware profiling on the A5000 (24 GB is the target "consumer GPU" class)
-- [ ] Write Results, Ablations, GraphNav-Bench sections; make figures
-- [ ] Release GraphNav-Bench (CC-BY 4.0) and the LoRA adapter
-
-### Buffer: Nov 10–12 · Polish & Submit
-- [ ] Proofread, check citations, write the AI-usage disclosure
-- [ ] **Submit by Nov 12, 11:59 PM UTC** (aim for Nov 11)
+Teacher-side repos for training data are cloned and deleted in batches. Training data and LoRA checkpoints stay on Kaggle. No paid storage needed; free up a few GB on C: as extra margin.
 
 ---
 
-## 7. Risks & Fallbacks
+## 7. API Budget
+
+| Job | Episodes | Free-tier days |
+|---|---|---|
+| Teacher episodes (also the 31B baseline on its eval slice) | 300 | ~5–6 |
+| 31B on the 50-task eval set | 50 | ~1 |
+| **Total** | **350** | **~6–7 days**, overnight; 26B-A4B for development |
+
+Student evaluation is local and costs no API quota. RTX 2050 estimate for E2B: ~20–40 tokens/s → a 40-step episode in ~10–20 min → 50 tasks per configuration ≈ 1 night. **7 configurations ≈ 5–7 nights** (start with the 4 core rows).
+
+---
+
+## 8. Timeline
+
+| Phase | Dates | Output |
+|---|---|---|
+| **Build** | Oct 21–27 | Agent loop, Evidence Buffer, budget policy, graph tools, localization scorer; llama.cpp + E2B running on the RTX 2050; 1-task end-to-end on API and locally |
+| **Teacher data** | Oct 27–Nov 2 | ~300 teacher episodes (overnight); E2B base evals run locally in parallel |
+| **Distill** | Nov 1–4 | Filter → step-level dataset → QLoRA on Kaggle → GGUF |
+| **Evaluate** | Nov 4–8 | Distilled student + ablations on the laptop; `sb-cli` subset |
+| **GraphNav-Bench** | Oct 27–Nov 8 (daytime) | Auto paths from gold patch + call graph, Gemini-assisted check, hand-verify ~150 |
+| **Paper** | Nov 3–10 | Intro / method from Nov 3; results and figures last; ≤ 3,000 words |
+| **Submit** | Nov 11 | Public Kaggle notebook, dataset (CC-BY 4.0), LoRA + GGUF |
+
+**Build must finish by Oct 27.** Hard decision dates: **Oct 30** (teacher data on track? else Nebius overflow or smaller set); **Nov 4** (student trained? else report base E2B + tools as the offline result).
+
+---
+
+## 9. Risks & Fallbacks
 
 | Risk | Fallback |
 |---|---|
-| `/` is shared or not writable | Use `/data` (186 GB): evaluate on the Verified subset only, use cloud eval (`sb-cli` / Modal) for the full 500 |
-| 16k context too small for inference | Use a quantized KV cache, more aggressive Evidence Buffer summaries, a shorter tool-output cap |
-| SFT at 8k runs out of memory | Drop to 4k sequence length, lower LoRA rank on FFN layers |
-| Rollouts too slow | Fewer samples per task, smaller SWE-Gym subset, run overnight |
-| Expert iteration gives no gain | Present SFT + Evidence Buffer + graph tools as the main result; expert iteration as a negative/neutral ablation |
-| GraphNav-Bench annotation falls behind | Auto-generate draft navigation paths from the gold patch + call graph, then hand-verify a subset |
+| E2B too weak to follow the tool protocol | Constrained output (llama.cpp grammar / JSON schema); more step-level examples; E4B with offload |
+| 8K context too small on 4 GB | Q8/Q4 KV cache; tighter Evidence Buffer; cap tool output at ~1K tokens |
+| Teacher data too slow (API 500s / limits) | Use 26B-A4B as a second teacher with its own quota; Nebius overflow; fewer episodes (200) |
+| Kaggle GPU quota runs out | Train E2B only, 1 epoch, shorter sequences |
+| Disk full | Delete per-task indexes after runs; drop E4B; move logs to Kaggle dataset |
+| Student shows no gain over base | Report graph tools + Evidence Buffer as the offline result; distillation as a negative finding |
+| Resolve rate near zero | Expected for 2B; lead with localization, report resolve rate honestly |
