@@ -1,0 +1,284 @@
+{
+ "run": "e2e_smoke",
+ "model": "gemma-4-e2b",
+ "split": "test",
+ "max_steps": 20,
+ "constrained": true,
+ "started": "2026-10-25 18:50",
+ "tasks": [
+  {
+   "instance_id": "astropy__astropy-12907",
+   "answer": {
+    "files": [
+     "astropy/modeling/separable.py"
+    ],
+    "functions": [
+     "astropy/modeling/separable.py::_separable"
+    ]
+   },
+   "submitted": true,
+   "n_steps": 20,
+   "wall_s": 69.60629987716675,
+   "gold_files": [
+    "astropy/modeling/separable.py"
+   ],
+   "gold_functions": [
+    "astropy/modeling/separable.py::_cstack"
+   ],
+   "metrics": {
+    "file_acc_all@1": 1.0,
+    "file_hit@1": 1.0,
+    "file_acc_all@3": 1.0,
+    "file_hit@3": 1.0,
+    "file_acc_all@5": 1.0,
+    "file_hit@5": 1.0,
+    "func_acc_all@5": 0.0,
+    "func_hit@5": 0.0,
+    "func_acc_all@10": 0.0,
+    "func_hit@10": 0.0
+   },
+   "steps": [
+    {
+     "step": 0,
+     "tool": "list_dir",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 682,
+     "completion_tokens": 60,
+     "cached_tokens": 0,
+     "prompt_ms": 413.51,
+     "gen_ms": 1060.181,
+     "observation_chars": 251
+    },
+    {
+     "step": 1,
+     "tool": "search_code",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 847,
+     "completion_tokens": 78,
+     "cached_tokens": 741,
+     "prompt_ms": 87.585,
+     "gen_ms": 1317.631,
+     "observation_chars": 2308
+    },
+    {
+     "step": 2,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 1691,
+     "completion_tokens": 131,
+     "cached_tokens": 924,
+     "prompt_ms": 342.081,
+     "gen_ms": 2495.108,
+     "observation_chars": 4037
+    },
+    {
+     "step": 3,
+     "tool": "search_code",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 3263,
+     "completion_tokens": 110,
+     "cached_tokens": 1821,
+     "prompt_ms": 609.571,
+     "gen_ms": 2068.511,
+     "observation_chars": 2692
+    },
+    {
+     "step": 4,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 4259,
+     "completion_tokens": 133,
+     "cached_tokens": 3348,
+     "prompt_ms": 411.172,
+     "gen_ms": 2340.373,
+     "observation_chars": 4038
+    },
+    {
+     "step": 5,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 5701,
+     "completion_tokens": 144,
+     "cached_tokens": 4391,
+     "prompt_ms": 598.74,
+     "gen_ms": 2735.71,
+     "observation_chars": 214
+    },
+    {
+     "step": 6,
+     "tool": "search_code",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 5937,
+     "completion_tokens": 83,
+     "cached_tokens": 5844,
+     "prompt_ms": 83.124,
+     "gen_ms": 1468.565,
+     "observation_chars": 2692
+    },
+    {
+     "step": 7,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 6907,
+     "completion_tokens": 105,
+     "cached_tokens": 6019,
+     "prompt_ms": 415.885,
+     "gen_ms": 1889.953,
+     "observation_chars": 214
+    },
+    {
+     "step": 8,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 7104,
+     "completion_tokens": 124,
+     "cached_tokens": 7011,
+     "prompt_ms": 84.355,
+     "gen_ms": 2212.229,
+     "observation_chars": 214
+    },
+    {
+     "step": 9,
+     "tool": "search_code",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 7320,
+     "completion_tokens": 91,
+     "cached_tokens": 7227,
+     "prompt_ms": 83.522,
+     "gen_ms": 1608.135,
+     "observation_chars": 2692
+    },
+    {
+     "step": 10,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 7475,
+     "completion_tokens": 124,
+     "cached_tokens": 740,
+     "prompt_ms": 2602.984,
+     "gen_ms": 2379.863,
+     "observation_chars": 214
+    },
+    {
+     "step": 11,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 7690,
+     "completion_tokens": 126,
+     "cached_tokens": 7553,
+     "prompt_ms": 112.089,
+     "gen_ms": 2240.824,
+     "observation_chars": 214
+    },
+    {
+     "step": 12,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 6492,
+     "completion_tokens": 130,
+     "cached_tokens": 740,
+     "prompt_ms": 2190.278,
+     "gen_ms": 2289.954,
+     "observation_chars": 1626
+    },
+    {
+     "step": 13,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 7245,
+     "completion_tokens": 138,
+     "cached_tokens": 6621,
+     "prompt_ms": 303.265,
+     "gen_ms": 2472.438,
+     "observation_chars": 1626
+    },
+    {
+     "step": 14,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 7143,
+     "completion_tokens": 144,
+     "cached_tokens": 740,
+     "prompt_ms": 2448.407,
+     "gen_ms": 3309.754,
+     "observation_chars": 4037
+    },
+    {
+     "step": 15,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 7531,
+     "completion_tokens": 138,
+     "cached_tokens": 740,
+     "prompt_ms": 2627.652,
+     "gen_ms": 2440.599,
+     "observation_chars": 1395
+    },
+    {
+     "step": 16,
+     "tool": "search_code",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 7307,
+     "completion_tokens": 113,
+     "cached_tokens": 740,
+     "prompt_ms": 2525.572,
+     "gen_ms": 2154.25,
+     "observation_chars": 3747
+    },
+    {
+     "step": 17,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 7594,
+     "completion_tokens": 122,
+     "cached_tokens": 740,
+     "prompt_ms": 2662.973,
+     "gen_ms": 2341.359,
+     "observation_chars": 4037
+    },
+    {
+     "step": 18,
+     "tool": "read_file",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 6364,
+     "completion_tokens": 136,
+     "cached_tokens": 740,
+     "prompt_ms": 2533.143,
+     "gen_ms": 2718.967,
+     "observation_chars": 4037
+    },
+    {
+     "step": 19,
+     "tool": "submit",
+     "valid": true,
+     "error": null,
+     "prompt_tokens": 7459,
+     "completion_tokens": 106,
+     "cached_tokens": 740,
+     "prompt_ms": 2782.359,
+     "gen_ms": 2119.918,
+     "observation_chars": null
+    }
+   ]
+  }
+ ]
+}

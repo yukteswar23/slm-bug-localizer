@@ -75,14 +75,20 @@ One harness for all models, served by `llama-server` (OpenAI-compatible API).
 
 Tool output is capped (~1K tokens per call) so each step fits the 8K context budget.
 
+Implementation notes (from the first end-to-end runs, 2026-10-25):
+- Requests go through llama-server's `/apply-template` + `/completion`, not the chat endpoint. The chat endpoint applies the grammar lazily after a thinking block, and Gemma 4 opened its thought channel by itself, which produced invalid replies. With `/completion` the grammar holds from the first token (0 invalid replies).
+- Compressing old tool outputs changes the prompt prefix, so the KV cache is lost and every later step reprocesses ~6K tokens (visible in `figures/episode_e2e_smoke_*`). The Evidence Buffer should be append-only to keep the cache.
+- Small models repeat the same tool call (Gemma read the same lines up to 4 times). Count repeated calls as a failure-mode metric.
+- The scorer normalizes module-style paths (`pkg.mod.py::f` → `pkg/mod.py::f`); `scripts/rescore.py` recomputes metrics without rerunning models.
+
 ---
 
 ## 6. Evaluation
 
 **Data:** SWE-bench Lite (300 Python tasks; localization results from Agentless and LocAgent use it, so our numbers can be compared).
 
-- Dev set: 20 tasks, used for prompt and harness tuning.
-- Test set: 100 tasks, disjoint from dev, fixed before any test run. Scale up to the full set if time allows.
+- Dev set: the official SWE-bench Lite **dev split** (23 tasks, from repos that do not appear in the test split), used for prompt and harness tuning.
+- Test set: 100 tasks from the test split, fixed before any test run. Scale up to the full 300 if time allows.
 
 **Metrics:**
 
@@ -123,7 +129,7 @@ Our difference: models ≤ 4B, a 4 GB consumer GPU, fully offline, no training, 
 
 | Phase | Dates | Output |
 |---|---|---|
-| **Build** | Oct 25–28 | `llama-server` wrapper, file tools, task loader, localization scorer, constrained tool calls; one task end to end on both models |
+| **Build** | Oct 25–28 (one task end to end on both models: done Oct 25) | `llama-server` wrapper, file tools, task loader, localization scorer, constrained tool calls; one task end to end on both models |
 | **Scaffolding** | Oct 29–31 | Graph tools, Evidence Buffer, budget policy; tune on dev set |
 | **Main runs** | Nov 1–5 | C0–C4 and C4−G on the test set, overnight |
 | **Secondary** | Nov 4–6 | 31B reference; fix experiment on a subset |
