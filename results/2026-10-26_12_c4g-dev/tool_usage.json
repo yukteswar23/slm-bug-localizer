@@ -1,0 +1,20 @@
+{
+ "gemma-4-e2b": {
+  "list_dir": 27,
+  "search_code": 91,
+  "read_file": 148,
+  "find_definition": 11,
+  "search_similar_code": 3,
+  "get_file_outline": 3,
+  "submit": 22
+ },
+ "qwen3.5-4b": {
+  "list_dir": 16,
+  "search_code": 76,
+  "read_file": 134,
+  "find_definition": 14,
+  "search_similar_code": 0,
+  "get_file_outline": 1,
+  "submit": 15
+ }
+}

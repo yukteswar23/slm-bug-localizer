@@ -3,3 +3,7 @@ logs/
 __pycache__/
 .env
 docs/competition/
+# LaTeX build files (the compiled paper/main.pdf is tracked)
+paper/*.aux
+paper/*.log
+paper/*.out

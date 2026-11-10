@@ -1,0 +1,13 @@
+{
+ "experiment": "2026-10-26_13_c0-test",
+ "split": "test",
+ "tools": "none (C0: BM25 retrieval only)",
+ "files": "BM25(issue, file text), top 5",
+ "functions": "BM25(issue, function body), top 10 within the top-5 files",
+ "models": {
+  "bm25": {
+   "started": "2026-10-26 05:16",
+   "n_tasks": 100
+  }
+ }
+}

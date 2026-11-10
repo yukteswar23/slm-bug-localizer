@@ -1,0 +1,16 @@
+{
+ "gemma-4-e2b": {
+  "steps": 1542,
+  "invalid": {
+   "Malformed JSON": 287
+  }
+ },
+ "qwen3.5-4b": {
+  "steps": 1655,
+  "invalid": {
+   "Unknown tool name": 119,
+   "Answer without tool name": 173,
+   "Malformed JSON": 82
+  }
+ }
+}

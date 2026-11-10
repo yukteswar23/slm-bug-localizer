@@ -29,13 +29,18 @@ class LlamaServer:
         self.proc = None
 
     def __enter__(self):
+        try:  # never share a port with another server: two runs would mix replies
+            requests.get(f"{self.url}/health", timeout=2)
+            raise RuntimeError(f"port {self.port} is already in use by another llama-server")
+        except requests.ConnectionError:
+            pass
         gguf, ctx = MODELS[self.model]
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         self.log = open(LOG_DIR / f"llama-server_{self.model}.log", "w")
         self.proc = subprocess.Popen(
             [str(LLAMA_DIR / "llama-server.exe"), "-m", str(MODEL_DIR / gguf),
              "-ngl", "99", "-fa", "on", "-c", str(ctx), "-np", "1",
-             "--reasoning", "off", "--reasoning-format", "none", "--port", str(self.port), "--no-webui"],
+             "--load-mode", "none", "--reasoning", "off", "--reasoning-format", "none", "--port", str(self.port), "--no-webui"],
             stdout=self.log, stderr=subprocess.STDOUT)
         deadline = time.time() + 180
         while time.time() < deadline:

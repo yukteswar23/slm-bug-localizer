@@ -1,0 +1,14 @@
+{
+ "gemma-4-e2b": {
+  "list_dir": 194,
+  "search_code": 501,
+  "read_file": 956,
+  "submit": 100
+ },
+ "qwen3.5-4b": {
+  "list_dir": 52,
+  "search_code": 505,
+  "read_file": 641,
+  "submit": 100
+ }
+}

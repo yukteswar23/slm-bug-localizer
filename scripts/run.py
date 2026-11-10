@@ -59,10 +59,15 @@ def main():
     config["models"][args.model] = {"started": time.strftime("%Y-%m-%d %H:%M"),
                                     "n_tasks": len(tasks), "ids": args.ids}
     config_path.write_text(json.dumps(config, indent=1))
+    done = {}
+    if summary_path.exists():  # resume: keep tasks finished before an interruption
+        prev = json.loads(summary_path.read_text())
+        done = {t["instance_id"]: t for t in prev.get("tasks", [])}
+        tasks = [t for t in tasks if t.instance_id not in done]
     summary = {"run": args.run, "model": args.model, "split": args.split,
                "max_steps": args.max_steps, "constrained": not args.unconstrained,
                "options": options,
-               "started": time.strftime("%Y-%m-%d %H:%M"), "tasks": []}
+               "started": time.strftime("%Y-%m-%d %H:%M"), "tasks": list(done.values())}
 
     with (ApiLLM() if args.model == "gemma-4-31b" else LlamaServer(args.model)) as llm:
         for n, task in enumerate(tasks, 1):
